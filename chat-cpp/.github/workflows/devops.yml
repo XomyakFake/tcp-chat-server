@@ -1,0 +1,47 @@
+name: C++ Chat DevOps Pipeline
+
+on: [push, pull_request]
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Compiler
+        run: sudo apt-get update && sudo apt-get install -y g++
+
+      - name: Compile Server
+        run: g++ server.cpp -o server -pthread
+
+      - name: Compile Client
+        run: g++ client.cpp -o client -pthread
+      
+      - name: Check artifacts
+        run: ls -l server client  
+
+  docker-build:
+    needs: build-test  
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/chat-cpp:latest
